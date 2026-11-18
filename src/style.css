@@ -121,7 +121,9 @@
 .bb-tb{appearance:none;height:30px;padding:0 2px;border:0;background:transparent;color:#fff;font:800 15px/1 inherit;font-family:inherit;cursor:pointer}
 .bb-tb[hidden]{display:none}
 .bb-er{display:flex;gap:18px}
-.bb-er label{flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:36px;font-size:14px;font-weight:700;color:var(--bb-text)}
+.bb-ec{flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:36px}
+.bb-rl{appearance:none;flex:none;height:36px;padding:0 2px;border:0;background:transparent;color:var(--bb-text);font:700 14px/1 inherit;font-family:inherit;cursor:pointer}
+.bb-rl:active{color:var(--bb-blue)}
 .bb-er input{flex:1;min-width:0;height:36px;margin:0;accent-color:var(--bb-blue)}
 .bb-submit{appearance:none;display:block;width:50%;height:46px;margin:10px auto 0;border-radius:12px;border:1px solid var(--bb-gold,#f2b63d);background:transparent;color:var(--bb-gold,#f2b63d);font:800 17px/1 inherit;font-family:inherit;cursor:pointer}
 .bb-submit:disabled{opacity:.45;cursor:default}

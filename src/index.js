@@ -101,8 +101,8 @@ export function createBagBuilder(container, options = {}) {
         <div class="bb-edit dim">
           <div class="bb-eh"><span class="bb-et">Tap a logo to edit it</span><span class="bb-ea"><button type="button" class="bb-tb bb-auto" hidden>Auto color</button><button type="button" class="bb-tb bb-remove">Remove</button></span></div>
           <div class="bb-er">
-            <label><span>Size</span><input type="range" class="bb-lsize" min="0.05" max="0.6" step="0.005"></label>
-            <label><span>Rotate</span><input type="range" class="bb-lrot" min="-180" max="180" step="1" value="0"></label>
+            <div class="bb-ec"><button type="button" class="bb-rl bb-rsize" aria-label="Size, tap to bring it back to the original size">Size</button><input type="range" class="bb-lsize" min="0.05" max="0.6" step="0.005" aria-label="Size"></div>
+            <div class="bb-ec"><button type="button" class="bb-rl bb-rrot" aria-label="Rotate, tap to bring it back to square">Rotate</button><input type="range" class="bb-lrot" min="-180" max="180" step="1" value="0" aria-label="Rotate"></div>
           </div>
         </div>
       </div>
@@ -154,7 +154,7 @@ export function createBagBuilder(container, options = {}) {
   let logosReady = false; // the logo controls are built after the first ui() call
   const cur = () => ({ group: SERIES[sel.g].group, mode: SERIES[sel.g].mode, ...SERIES[sel.g].items[sel.i] });
   const STEP_NAMES = { series: 'Series', image: 'Image', logo: 'Logo', adjust: 'Adjust', slow: 'Slow side', review: 'Review' };
-  const stepIds = () => (cur().mode === 'carpet' ? ['series', 'image', 'logo', 'adjust', 'slow', 'review'] : ['series', 'image', 'logo', 'adjust', 'review']);
+  const stepIds = () => (cur().mode === 'carpet' ? ['series', 'image', 'adjust', 'logo', 'slow', 'review'] : ['series', 'image', 'adjust', 'logo', 'review']);
   let step = 'series';
 
   const pip = $('.bb-pip canvas');
@@ -545,6 +545,19 @@ export function createBagBuilder(container, options = {}) {
     for (const s of [-180, -90, 0, 90, 180]) if (Math.abs(v - s) <= 4) v = s; // straight and square snap
     eRot.value = v;
     l.rot = (v * Math.PI) / 180;
+    editor.update();
+  };
+  // tapping the words Size or Rotate puts it back: original size, or square
+  $('.bb-rsize').onclick = () => {
+    const l = placements[side].sel;
+    if (!l) return;
+    l.w = l.w0 || l.w;
+    editor.update();
+  };
+  $('.bb-rrot').onclick = () => {
+    const l = placements[side].sel;
+    if (!l) return;
+    l.rot = 0;
     editor.update();
   };
   $('.bb-remove').onclick = () => {

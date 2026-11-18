@@ -43,8 +43,15 @@ export class BagPreview {
     under.position.set(2, -6, 5);
     scene.add(under);
 
+    // the pivot turns with your finger: sideways = around the line through the middle of the bag that runs up
+    // the screen, up and down = tilt. The flip animation turns the bag inside the pivot.
+    this.pivot = new THREE.Group();
+    scene.add(this.pivot);
     this.bag = new THREE.Group();
-    scene.add(this.bag);
+    this.pivot.add(this.bag);
+    this.yaw = 0;
+    this.pitch = 0;
+    this.spin = false;
     this.bump = new THREE.CanvasTexture(weaveBump());
     this.bump.wrapS = this.bump.wrapT = THREE.RepeatWrapping;
     this.bump.repeat.set(26, 26);
@@ -104,16 +111,54 @@ export class BagPreview {
     const c = (this.controls = new OrbitControls(this.camera, r.domElement));
     c.enableDamping = true;
     c.dampingFactor = 0.08;
+    c.enableRotate = false; // the camera stays put, one finger turns the bag (see _drag), the controls only zoom
+    c.enablePan = false;
     c.minDistance = 1.2;
     c.maxDistance = 30;
     c.addEventListener('start', () => (this._moved = true));
     c.update();
+    this._drag();
 
     this._ro = new ResizeObserver(() => this.resize());
     this._ro.observe(container);
     this.resize();
     r.setAnimationLoop(() => this._tick());
     this._last = performance.now();
+  }
+
+  // one finger (or the mouse) turns the bag; two fingers are left to the pinch zoom
+  _drag() {
+    const el = this.renderer.domElement;
+    const down = new Map();
+    const K = 0.012; // radians per pixel, a swipe across the view turns the bag about half way round
+    el.addEventListener('pointerdown', (e) => {
+      down.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', (e) => {
+      const p = down.get(e.pointerId);
+      if (!p || down.size !== 1) {
+        if (p) Object.assign(p, { x: e.clientX, y: e.clientY });
+        return;
+      }
+      this.yaw += (e.clientX - p.x) * K;
+      this.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitch + (e.clientY - p.y) * K));
+      p.x = e.clientX;
+      p.y = e.clientY;
+      this._moved = true;
+    });
+    const end = (e) => down.delete(e.pointerId);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
+  _applyPivot() {
+    // sideways turns the bag around its own line that runs up the screen through the middle of the bag
+    // (the bag lies flat, so that line is the world Z axis); tilting goes around the screen's horizontal axis
+    this.camera.updateMatrixWorld();
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
+    const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), this.yaw);
+    const qp = new THREE.Quaternion().setFromAxisAngle(right, this.pitch);
+    this.pivot.quaternion.copy(qp.multiply(qy));
   }
 
   // call after the flat fabric canvas changed
@@ -149,7 +194,9 @@ export class BagPreview {
       this.bag.rotation.x = this.flipFrom + Math.PI * ss(this.flipT);
       if (this.flipT >= 1) this.flipT = -1;
     }
+    if (this.spin) this.yaw += dt * 0.5;
     this.controls.update();
+    this._applyPivot();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -158,8 +205,7 @@ export class BagPreview {
     this.flipFrom = this.bag.rotation.x;
   }
   setSpin(on) {
-    this.controls.autoRotate = on;
-    this.controls.autoRotateSpeed = 2.5;
+    this.spin = on;
   }
   setWireframe(on) {
     this.wire.visible = on;
@@ -174,6 +220,8 @@ export class BagPreview {
   view(name) {
     if (name === 'home') {
       this.bag.rotation.set(0, 0, 0);
+      this.yaw = 0;
+      this.pitch = 0;
       this._moved = false;
       this._home();
       return;
