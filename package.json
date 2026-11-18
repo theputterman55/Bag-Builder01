@@ -1,0 +1,20 @@
+{
+  "name": "bag-builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "3-D cornhole bag design builder: shared shape, flat-fabric editor and live 3D preview",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:lib": "vite build --mode lib",
+    "preview": "vite preview",
+    "test": "node tests/geometry.test.mjs"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
