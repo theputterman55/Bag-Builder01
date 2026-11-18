@@ -66,11 +66,22 @@ export function fabricSample(kind, base) {
   return c;
 }
 
+// the fabrics offered on the Fabric step: name, weave look, base color
+export const FABRICS = [
+  { key: 'denim', label: 'Denim', kind: 'carpet', base: '#6f7f94' },
+  { key: 'sand', label: 'Sand', kind: 'suede', base: '#9b8f78' },
+  { key: 'blueCarpet', label: 'Blue', kind: 'carpet', base: '#1c3f78' },
+  { key: 'gray', label: 'Gray', kind: 'carpet', base: '#8d9097' },
+  { key: 'redCarpet', label: 'Red', kind: 'carpet', base: '#a3262a' },
+  { key: 'suede', label: 'Suede', kind: 'suede', base: '#b08a5a' },
+  { key: 'gold', label: 'Gold', kind: 'carpet', base: '#e0a21e' },
+  { key: 'natural', label: 'Natural', kind: 'suede', base: '#e6dfd0' },
+  { key: 'black', label: 'Black', kind: 'carpet', base: '#2a2a2e' }
+];
+
 export const SAMPLES = {
   design: { label: 'Test design', make: (side) => designSample(side === 'bottom' ? 'BOTTOM' : 'TOP', side === 'bottom' ? '#5c1f12' : '#12335c', side === 'bottom' ? '#3fb6a8' : '#f2b544') },
-  blueCarpet: { label: 'Blue carpet', make: () => fabricSample('carpet', '#1c3f78') },
-  redCarpet: { label: 'Red carpet', make: () => fabricSample('carpet', '#a3262a') },
-  suede: { label: 'Suede', make: () => fabricSample('suede', '#b08a5a') }
+  ...Object.fromEntries(FABRICS.map((f) => [f.key, { label: f.label, make: () => fabricSample(f.kind, f.base) }]))
 };
 
 // fine weave used as a bump map so fabric catches light

@@ -5,7 +5,7 @@
 // One finger drags the image. Two fingers zoom and rotate. Mouse wheel zooms.
 
 const GOLD = '#F2B544';
-const TEAL = '#3FB6A8';
+const TEAL = '#38BDF8';
 
 export class Editor2D {
   constructor(canvas, shape, { size = 1024, onChange } = {}) {
@@ -93,6 +93,13 @@ export class Editor2D {
     ctx.beginPath();
     this._path(ctx, shape.outline(P.safeIn / 2, 240), ppi);
     ctx.stroke();
+    // labels
+    ctx.font = '800 ' + Math.round(size * 0.034) + 'px system-ui, sans-serif';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('SEAM', size * 0.075, size * 0.105);
+    ctx.fillStyle = TEAL;
+    ctx.fillText('SAFE AREA', size * 0.125, size * 0.152);
     ctx.restore();
   }
 

@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { weaveBump } from '../editor/samples.js';
 
-const HOME = new THREE.Vector3(0, 5.2, 8.2);
+const HOME_DIR = new THREE.Vector3(0, 7.2, 5.0).normalize();
+const HOME = HOME_DIR.clone().multiplyScalar(9.6);
 const ss = (t) => {
   const u = Math.min(1, Math.max(0, t));
   return u * u * (3 - 2 * u);
@@ -105,6 +106,7 @@ export class BagPreview {
     c.dampingFactor = 0.08;
     c.minDistance = 1.2;
     c.maxDistance = 30;
+    c.addEventListener('start', () => (this._moved = true));
     c.update();
 
     this._ro = new ResizeObserver(() => this.resize());
@@ -126,6 +128,16 @@ export class BagPreview {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // how far back the camera must sit for the whole bag to fit this box
+    const t = 2 * Math.tan((this.camera.fov * Math.PI) / 360);
+    this.fitDist = Math.max(8.4 / (t * this.camera.aspect), 6.4 / t);
+    if (!this._moved) this._home();
+  }
+
+  _home() {
+    this.camera.position.copy(HOME_DIR).multiplyScalar(this.fitDist || 9.6);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
   }
 
   _tick() {
@@ -160,14 +172,18 @@ export class BagPreview {
     });
   }
   view(name) {
+    if (name === 'home') {
+      this.bag.rotation.set(0, 0, 0);
+      this._moved = false;
+      this._home();
+      return;
+    }
     const v = {
-      home: [HOME, [0, 0, 0]],
       under: [new THREE.Vector3(0, -5.2, 8.2), [0, 0, 0]],
       pinch: [new THREE.Vector3(0, 1.4, 5.4), [0, 0, 2.7]],
       seam: [new THREE.Vector3(-1.2, 0.4, 5.2), [-1.0, 0, 2.9]]
     }[name];
     if (!v) return;
-    if (name === 'home') this.bag.rotation.set(0, 0, 0);
     this.camera.position.copy(v[0]);
     this.controls.target.set(...v[1]);
     this.controls.update();

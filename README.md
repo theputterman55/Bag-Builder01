@@ -46,3 +46,15 @@ Guides in the editor:
 ```
 
 Hosting: build on Cloudflare (build command `npm run build`, output `dist`). The repo is private, so GitHub Pages is not used.
+
+## The phone layout
+
+One screen, built for a phone. Top to bottom:
+
+- 3D bag (live), then the flat art with the cut edge, seam line and safe area drawn on it.
+- Left rail: both views, 3D only (with a small flat picture in the corner), flat only.
+- Step strip: Upload, Adjust, Fabric, Review. Each step shows the current choice under its name.
+- Upload opens a sheet: Photo library, Take photo, Files, plus a test design.
+- Bottom bar: the design name and one main action (Save design). Pass `onSave` to hand the two images to the host app.
+
+Options: `title`, `start` (fabric names for each side), `safeIn`, `cutIn`, `onChange`, `onSave`.
