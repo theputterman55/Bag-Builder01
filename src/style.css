@@ -75,4 +75,4 @@
 .bb-samples{display:flex;align-items:center;gap:12px;margin-top:2px}
 .bb-samples span{font-size:13px;font-weight:800;color:var(--bb-text)}
 .bb-samples .bb-btn{flex:none;padding:0 18px}
-@media (min-width:700px){.bb-app{border-left:1px solid #27272a;border-right:1px solid #27272a}}
+@media (min-width:700px){.bb-app{border-left:1px solid #27272a;border-right:1px solid #27272a;max-width:468px}.bb-root{height:calc(var(--bb-h,100dvh)*0.9);margin:calc(var(--bb-h,100dvh)*0.05) auto 0}}
