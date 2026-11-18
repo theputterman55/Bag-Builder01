@@ -62,3 +62,6 @@ Options: `title`, `start` (fabric names for each side), `safeIn`, `cutIn`, `onCh
 
 ### Series and the two paths
 The first step picks a series. Carpet series (Power Draggin', XTRA, Double Draggin' X) print one side and add a Slow side color step, which flips the bag to its bottom. Double Fast series (WGCB) print both sides: the Image step has Image 1 (Top) and Image 2 (Bottom). Pass `options.series` to change the list. Each item has a name and a speed shown after a dash.
+
+- Header holds the view buttons (both, 3D only, flat only) and Reset. The flip button is a small icon square in the corner of the 3D window.
+- Step sizing: Logo and Review keep the full tools panel (original sizing). Series, Image, Adjust and Slow side use a shorter panel so the 3D bag and flat art are bigger (expanded sizing). On the Logo step an arrow in the flat window folds the tools away to enlarge the viewing area, and flips to bring them back.

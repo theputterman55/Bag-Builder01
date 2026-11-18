@@ -30,7 +30,10 @@ const IC = {
   file: '<path d="M6 3h8l5 5v13H6zM14 3v5h5"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>'
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  updown: '<path d="m3 8 4-4 4 4"/><path d="M7 4v16"/><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/>',
+  chevup: '<path d="M6 15l6-6 6 6"/>',
+  chevdn: '<path d="M6 9l6 6 6-6"/>'
 };
 const ic = (n, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 
@@ -45,15 +48,15 @@ export function createBagBuilder(container, options = {}) {
   <div class="bb-app" data-view="both">
     <header class="bb-bar">
       <div class="bb-title">${options.title || 'Bag builder'}</div>
-      <button type="button" class="bb-ibtn bb-reset" aria-label="Reset this side">${ic('reset')}</button>
-    </header>
-    <div class="bb-views">
       <div class="bb-rail" role="group" aria-label="Views">
         <button type="button" class="bb-rb on" data-view="both" aria-label="Both views">${ic('both')}</button>
         <button type="button" class="bb-rb" data-view="3d" aria-label="3D bag only">${ic('cube')}</button>
         <button type="button" class="bb-rb" data-view="flat" aria-label="Flat art only">${ic('image')}</button>
       </div>
-      <button type="button" class="bb-chip bb-flipchip">${ic('flip', 20)}<span>Flip · Top</span></button>
+      <button type="button" class="bb-ibtn bb-reset" aria-label="Reset this side">${ic('reset')}</button>
+    </header>
+    <div class="bb-views">
+      <button type="button" class="bb-flip" aria-label="Flip to the bottom side">${ic('updown', 22)}</button>
       <section class="bb-stage bb-s3d">
         <div class="bb-3d"></div>
         <button type="button" class="bb-pip" aria-label="Edit the flat art"><canvas width="260" height="260"></canvas><span>Flat art · tap to edit</span></button>
@@ -61,6 +64,7 @@ export function createBagBuilder(container, options = {}) {
       <section class="bb-stage bb-sflat">
         <canvas class="bb-flat" aria-label="Flat fabric editor"></canvas>
         <div class="bb-sidelbl">Top</div>
+        <button type="button" class="bb-big" aria-label="Make the viewing area bigger" hidden>${ic('chevup', 30)}</button>
         <button type="button" class="bb-upbig">${ic('image', 24)}<span>Upload image</span></button>
         <div class="bb-hint" role="status"></div>
       </section>
@@ -135,6 +139,7 @@ export function createBagBuilder(container, options = {}) {
   const $ = (sel) => container.querySelector(sel);
   const $$ = (sel) => [...container.querySelectorAll(sel)];
   const app = $('.bb-app');
+  app.dataset.size = 'exp';
   const placements = { top: new Placement(), bottom: new Placement() };
   const has = { top: false, bottom: false };
   const names = { top: '', bottom: '' };
@@ -206,7 +211,7 @@ export function createBagBuilder(container, options = {}) {
   function ui() {
     const c = cur();
     const imgOn = has[side];
-    $('.bb-flipchip span').textContent = 'Flip · ' + cap(side);
+    $('.bb-flip').setAttribute('aria-label', 'Flip to the ' + other(side) + ' side');
     $('.bb-sidelbl').textContent = cap(side);
     $('.bb-upbig').hidden = imgOn || (c.mode === 'carpet' && side === 'bottom');
     $('.bb-replace').hidden = !imgOn;
@@ -316,8 +321,8 @@ export function createBagBuilder(container, options = {}) {
   const fit = () => {
     const w = sflat.clientWidth;
     const h = sflat.clientHeight;
-    const reserve = app.dataset.view === 'flat' ? 56 : 0;
-    const s = Math.max(120, Math.min(w - 16 - reserve, h - 34));
+    const reserve = 0;
+    const s = Math.max(120, Math.min(w - 16 - reserve, h - 34 - (app.hasAttribute('data-big') ? 24 : 0)));
     const c = $('.bb-flat');
     c.style.width = c.style.height = s + 'px';
     sflat.style.paddingLeft = reserve + 'px';
@@ -344,7 +349,7 @@ export function createBagBuilder(container, options = {}) {
       preview.flip();
     }
   }
-  $('.bb-flipchip').onclick = () => {
+  $('.bb-flip').onclick = () => {
     const n = other(side);
     if (cur().mode === 'carpet') setStep(n === 'bottom' ? 'slow' : has.top ? 'adjust' : 'image');
     else showSide(n);
@@ -615,12 +620,33 @@ export function createBagBuilder(container, options = {}) {
       nav.appendChild(b);
     });
   }
+  // the arrow in the flat window: up makes the viewing area bigger (tools fold away), down brings them back
+  let big = false;
+  function relayout() {
+    fit();
+    if (preview) requestAnimationFrame(() => preview.resize());
+  }
+  function setBig(v) {
+    big = v;
+    if (v) app.setAttribute('data-big', '');
+    else app.removeAttribute('data-big');
+    const b = $('.bb-big');
+    b.innerHTML = ic(v ? 'chevdn' : 'chevup', 30);
+    b.setAttribute('aria-label', v ? 'Show the tools again' : 'Make the viewing area bigger');
+    relayout();
+  }
+  $('.bb-big').onclick = () => setBig(!big);
   function setStep(id) {
     step = id;
     $$('.bb-step').forEach((b) => b.classList.toggle('on', b.dataset.step === id));
     $$('.bb-pane').forEach((p) => (p.hidden = p.dataset.pane !== id));
     if (cur().mode === 'carpet') showSide(id === 'slow' ? 'bottom' : 'top');
     editor.hitTest = id === 'logo';
+    // Logo and Review keep the full tools panel; the other steps give the room to the views
+    app.dataset.size = id === 'logo' || id === 'review' ? 'orig' : 'exp';
+    $('.bb-big').hidden = id !== 'logo';
+    if (id !== 'logo') setBig(false);
+    else relayout();
     ['top', 'bottom'].forEach((n) => (placements[n].sel = null));
     editor.update();
     const on = $('.bb-step.on');
