@@ -28,7 +28,8 @@ const IC = {
   cam: '<path d="M4 8h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/>',
   file: '<path d="M6 3h8l5 5v13H6zM14 3v5h5"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
-  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>'
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>'
 };
 const ic = (n, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 
@@ -74,6 +75,24 @@ export function createBagBuilder(container, options = {}) {
           <button type="button" class="bb-slot" data-side="bottom"><canvas width="88" height="88"></canvas><span><b>Image 2</b><small>Bottom · Add image</small></span></button>
         </div>
         <div class="bb-note bb-imgnote"></div>
+      </div>
+      <div class="bb-pane" data-pane="logo">
+        <div class="bb-ltabs">
+          <button type="button" class="bb-lt on" data-lt="brand">Brand logo</button>
+          <button type="button" class="bb-lt" data-lt="name">Series name</button>
+          <button type="button" class="bb-lt" data-lt="stamp">Stamp</button>
+        </div>
+        <div class="bb-lc bb-lps" data-lc="brand">
+          <button type="button" class="bb-lp" data-i="0" aria-label="Add a logo"><span class="bb-plus">${ic('plus', 30)}</span><canvas width="200" height="120"></canvas></button>
+          <button type="button" class="bb-lp" data-i="1" aria-label="Add a logo"><span class="bb-plus">${ic('plus', 30)}</span><canvas width="200" height="120"></canvas></button>
+          <button type="button" class="bb-lp" data-i="2" aria-label="Add a logo"><span class="bb-plus">${ic('plus', 30)}</span><canvas width="200" height="120"></canvas></button>
+        </div>
+        <div class="bb-lc" data-lc="name" hidden><div class="bb-names"></div></div>
+        <div class="bb-lc bb-lps" data-lc="stamp" hidden>
+          <button type="button" class="bb-sp" data-stamp="ACL"><i></i><span>ACL</span></button>
+          <button type="button" class="bb-sp" data-stamp="UCL"><i></i><span>UCL</span></button>
+          <button type="button" class="bb-sp" data-stamp=""><i></i><span>None</span></button>
+        </div>
       </div>
       <div class="bb-pane" data-pane="adjust">
         <label class="bb-row"><span>Zoom</span><input type="range" class="bb-zoom" min="0.3" max="6" step="0.01"></label>
@@ -121,9 +140,10 @@ export function createBagBuilder(container, options = {}) {
     { group: 'Double Fast', mode: 'double', items: [{ name: 'WGCB', speed: '8/10' }] }
   ];
   const sel = { g: 0, i: 0 };
+  let logosReady = false; // the logo controls are built after the first ui() call
   const cur = () => ({ group: SERIES[sel.g].group, mode: SERIES[sel.g].mode, ...SERIES[sel.g].items[sel.i] });
-  const STEP_NAMES = { series: 'Series', image: 'Image', adjust: 'Adjust', slow: 'Slow side', review: 'Review' };
-  const stepIds = () => (cur().mode === 'carpet' ? ['series', 'image', 'adjust', 'slow', 'review'] : ['series', 'image', 'adjust', 'review']);
+  const STEP_NAMES = { series: 'Series', image: 'Image', logo: 'Logo', adjust: 'Adjust', slow: 'Slow side', review: 'Review' };
+  const stepIds = () => (cur().mode === 'carpet' ? ['series', 'image', 'logo', 'adjust', 'slow', 'review'] : ['series', 'image', 'logo', 'adjust', 'review']);
   let step = 'series';
 
   const pip = $('.bb-pip canvas');
@@ -184,10 +204,12 @@ export function createBagBuilder(container, options = {}) {
     $('.bb-sidelbl').textContent = cap(side);
     $('.bb-upbig').hidden = imgOn || (c.mode === 'carpet' && side === 'bottom');
     $('.bb-replace').hidden = !imgOn;
-    msgEl.textContent = msg || (imgOn ? 'Drag to move · pinch to zoom · two fingers to turn' : '');
+    msgEl.textContent = msg || (step === 'logo' && placements[side].sel ? 'Drag to move · pinch to resize' : imgOn ? 'Drag to move · pinch to zoom · two fingers to turn' : '');
+    logoUI();
     const subs = {
       series: shorter(c.name),
       image: c.mode === 'carpet' ? (has.top ? shorter(names.top) : 'No image') : (has.top ? 1 : 0) + (has.bottom ? 1 : 0) + ' of 2 added',
+      logo: placements[side].layers.length ? placements[side].layers.length + ' added' : 'None',
       adjust: 'Move, zoom',
       slow: fab.bottom || 'Custom',
       review: ready() ? 'Ready' : 'Not ready'
@@ -321,6 +343,163 @@ export function createBagBuilder(container, options = {}) {
     else showSide(n);
   };
 
+  // ----- logos, series name and stamp: layers on top of the image -----
+  const layerOf = (key) => placements[side].layers.find((l) => l.key === key);
+  const aspectOf = (src) => (src.naturalHeight || src.height) / (src.naturalWidth || src.width);
+  function putLayer(l) {
+    const pl = placements[side];
+    const old = pl.layers.findIndex((x) => x.key === l.key);
+    if (old >= 0) pl.layers[old] = l;
+    else pl.layers.push(l);
+    pl.sel = l;
+    editor.update();
+    ui();
+  }
+  function dropLayer(key) {
+    const pl = placements[side];
+    pl.layers = pl.layers.filter((l) => l.key !== key);
+    if (pl.sel && pl.sel.key === key) pl.sel = null;
+    editor.update();
+    ui();
+  }
+  // a tap adds the logo, a tap on one that is on the art selects it, a tap on the selected one takes it off
+  function toggleLayer(key, make) {
+    const l = layerOf(key);
+    if (l && placements[side].sel === l) dropLayer(key);
+    else if (l) {
+      placements[side].sel = l;
+      editor.update();
+      ui();
+    } else putLayer(make());
+  }
+  const brand = [null, null, null]; // { source, name } for each brand logo placard
+  const NAME_STYLES = [
+    { font: 'italic 900 170px Inter, system-ui, sans-serif', upper: true, ls: 8 },
+    { font: 'italic 800 170px Georgia, serif', upper: false, ls: 0 },
+    { font: '700 150px Inter, system-ui, sans-serif', upper: true, ls: 26 },
+    { font: '900 170px Inter, system-ui, sans-serif', upper: true, ls: 6, outline: true },
+    { font: '600 150px "Courier New", monospace', upper: false, ls: 0 }
+  ];
+  function textSource(text, st) {
+    const t = st.upper ? text.toUpperCase() : text;
+    const m = document.createElement('canvas').getContext('2d');
+    m.font = st.font;
+    m.letterSpacing = st.ls + 'px';
+    const w = Math.ceil(m.measureText(t).width) + 80;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = 280;
+    const g = c.getContext('2d');
+    g.font = st.font;
+    g.letterSpacing = st.ls + 'px';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineJoin = 'round';
+    if (st.outline) {
+      g.lineWidth = 10;
+      g.strokeStyle = '#fff';
+      g.strokeText(t, w / 2, 145);
+    } else {
+      g.lineWidth = 22;
+      g.strokeStyle = '#000';
+      g.strokeText(t, w / 2, 145);
+      g.fillStyle = '#fff';
+      g.fillText(t, w / 2, 145);
+    }
+    return c;
+  }
+  function stampSource(label) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 400;
+    const g = c.getContext('2d');
+    g.beginPath();
+    g.arc(200, 200, 186, 0, Math.PI * 2);
+    g.fillStyle = '#0b0b0e';
+    g.fill();
+    g.lineWidth = 22;
+    g.strokeStyle = '#fff';
+    g.stroke();
+    g.fillStyle = '#fff';
+    g.font = '900 150px Inter, system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(label, 200, 212);
+    return c;
+  }
+  const nameLayer = (i) => {
+    const src = textSource(cur().name, NAME_STYLES[i]);
+    return { key: 'name', kind: 'name', style: i, source: src, tx: 0, ty: 0.27, w: 0.62, rot: 0, aspect: aspectOf(src) };
+  };
+  const nameRows = NAME_STYLES.map((st, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'bb-nm';
+    b.style.cssText = 'font:' + st.font.replace(/\d+px/, '21px') + ';letter-spacing:' + Math.round(st.ls / 8) + 'px' + (st.outline ? ';color:transparent;-webkit-text-stroke:1.5px #fff' : '');
+    b.onclick = () => {
+      const cur0 = layerOf('name');
+      if (cur0 && cur0.style === i && placements[side].sel === cur0) return dropLayer('name');
+      const l = nameLayer(i);
+      if (cur0) Object.assign(l, { tx: cur0.tx, ty: cur0.ty, w: cur0.w, rot: cur0.rot });
+      putLayer(l);
+    };
+    $('.bb-names').appendChild(b);
+    return b;
+  });
+  function logoUI() {
+    if (!logosReady) return;
+    const pl = placements[side];
+    $$('.bb-lp').forEach((b) => {
+      const i = +b.dataset.i;
+      const has = !!brand[i];
+      const l = layerOf('brand' + i);
+      b.classList.toggle('has', has);
+      b.classList.toggle('used', !!l);
+      b.classList.toggle('on', !!l && pl.sel === l);
+      if (has) {
+        const c = b.querySelector('canvas');
+        const g = c.getContext('2d');
+        g.clearRect(0, 0, c.width, c.height);
+        const k = Math.min(c.width / brand[i].source.width, c.height / brand[i].source.height);
+        const w = brand[i].source.width * k;
+        const h = brand[i].source.height * k;
+        g.drawImage(brand[i].source, (c.width - w) / 2, (c.height - h) / 2, w, h);
+      }
+    });
+    nameRows.forEach((b, i) => {
+      b.textContent = (NAME_STYLES[i].upper ? cur().name.toUpperCase() : cur().name);
+      const l = layerOf('name');
+      b.classList.toggle('on', !!l && l.style === i);
+    });
+    $$('.bb-sp').forEach((b) => {
+      const l = layerOf('stamp');
+      b.classList.toggle('on', l ? l.label === b.dataset.stamp : b.dataset.stamp === '');
+    });
+  }
+  $$('.bb-lt').forEach((b) => {
+    b.onclick = () => {
+      $$('.bb-lt').forEach((x) => x.classList.toggle('on', x === b));
+      $$('.bb-lc').forEach((c) => (c.hidden = c.dataset.lc !== b.dataset.lt));
+    };
+  });
+  $$('.bb-sp').forEach((b) => {
+    const lab = b.dataset.stamp;
+    const i = b.querySelector('i');
+    i.innerHTML = lab
+      ? '<svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#0b0b0e" stroke="#fff" stroke-width="2.5"/><text x="20" y="25" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="Inter,sans-serif">' + lab + '</text></svg>'
+      : '<svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="#a1a1aa" stroke-width="2.5"/><path d="M9 31L31 9" stroke="#a1a1aa" stroke-width="2.5"/></svg>';
+    b.onclick = () => {
+      if (!lab) return dropLayer('stamp');
+      const cur0 = layerOf('stamp');
+      if (cur0 && cur0.label === lab && placements[side].sel === cur0) return dropLayer('stamp');
+      const src = stampSource(lab);
+      const l = { key: 'stamp', kind: 'stamp', label: lab, source: src, tx: 0.3, ty: -0.3, w: 0.2, rot: 0, aspect: 1 };
+      if (cur0) Object.assign(l, { tx: cur0.tx, ty: cur0.ty, w: cur0.w, rot: cur0.rot });
+      putLayer(l);
+    };
+  });
+  editor.onSelect = () => ui();
+  logosReady = true;
+
   // ----- series and steps -----
   function renderSeries() {
     const p = $('.bb-series');
@@ -364,6 +543,12 @@ export function createBagBuilder(container, options = {}) {
     $$('.bb-step').forEach((b) => b.classList.toggle('on', b.dataset.step === id));
     $$('.bb-pane').forEach((p) => (p.hidden = p.dataset.pane !== id));
     if (cur().mode === 'carpet') showSide(id === 'slow' ? 'bottom' : 'top');
+    editor.hitTest = id === 'logo';
+    ['top', 'bottom'].forEach((n) => (placements[n].sel = null));
+    editor.update();
+    const on = $('.bb-step.on');
+    const nav = $('.bb-steps');
+    if (on) nav.scrollTo({ left: on.offsetLeft - (nav.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' });
     ui();
   }
   function pickSeries(gi, ii) {
@@ -374,6 +559,18 @@ export function createBagBuilder(container, options = {}) {
       if (has.bottom) setFabric('bottom', start.bottom);
       showSide('top');
     }
+    ['top', 'bottom'].forEach((n) => {
+      const pl = placements[n];
+      const k = pl.layers.findIndex((l) => l.key === 'name');
+      if (k >= 0) {
+        const old = pl.layers[k];
+        const src = textSource(cur().name, NAME_STYLES[old.style]);
+        pl.layers[k] = { ...old, source: src, aspect: aspectOf(src) };
+        if (pl.sel === old) pl.sel = pl.layers[k];
+      }
+      if (n === side) editor.update();
+      else if (preview) { render(n); preview.refresh(n); }
+    });
     renderSeries();
     renderSteps();
     setStep(stepIds().includes(step) ? step : 'image');
@@ -383,6 +580,13 @@ export function createBagBuilder(container, options = {}) {
   setStep('series');
 
   // ----- upload sheet -----
+  $$('.bb-lp').forEach((b) => {
+    b.onclick = () => {
+      const i = +b.dataset.i;
+      if (!brand[i]) return openSheet({ slot: i });
+      toggleLayer('brand' + i, () => ({ key: 'brand' + i, kind: 'brand', source: brand[i].source, tx: 0, ty: -0.3, w: 0.34, rot: 0, aspect: aspectOf(brand[i].source) }));
+    };
+  });
   const afterImage = () => setStep(cur().mode === 'double' && !(has.top && has.bottom) ? 'image' : 'adjust');
   $$('.bb-slot').forEach((sl) => {
     sl.onclick = () => {
@@ -391,19 +595,37 @@ export function createBagBuilder(container, options = {}) {
     };
   });
   const sheet = $('.bb-sheet');
-  function openSheet() {
+  let target = null; // null = the main image, or { slot } for a brand logo placard
+  function openSheet(t = null) {
+    target = t;
+    $('.bb-sh div').textContent = t ? 'Add a brand logo' : 'Upload your image';
+    $('.bb-samples').hidden = !!t;
     sheet.hidden = false;
   }
   const closeSheet = () => (sheet.hidden = true);
-  $('.bb-upbig').onclick = openSheet;
-  $('.bb-replace').onclick = openSheet;
-  $('.bb-open').onclick = openSheet;
+  $('.bb-upbig').onclick = () => openSheet();
+  $('.bb-replace').onclick = () => openSheet();
+  $('.bb-open').onclick = () => openSheet();
   $('.bb-close').onclick = closeSheet;
   $('.bb-back').onclick = closeSheet;
   $$('.bb-file').forEach((inp) => {
     inp.onchange = (e) => {
       const f = e.target.files[0];
-      if (f) {
+      if (f && target) {
+        const slot = target.slot;
+        closeSheet();
+        const fr = new FileReader();
+        fr.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            brand[slot] = { source: img, name: f.name };
+            putLayer({ key: 'brand' + slot, kind: 'brand', source: img, tx: 0, ty: -0.3, w: 0.34, rot: 0, aspect: aspectOf(img) });
+          };
+          img.onerror = () => setMsg('Could not open that image. Try a PNG.');
+          img.src = fr.result;
+        };
+        fr.readAsDataURL(f);
+      } else if (f) {
         closeSheet();
         setImage(side, f, f.name.replace(/\.[^.]+$/, '') + (f.name.includes('.') ? '.' + f.name.split('.').pop().toLowerCase() : ''), afterImage);
       }

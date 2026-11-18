@@ -6,6 +6,10 @@ export class Placement {
   constructor() {
     this.source = null; // canvas or image
     this.base = '#1b2430'; // fabric color showing where the image doesn't reach
+    // logos, series name and stamp sit on top of the image: { key, kind, source, tx, ty, w, rot, aspect }
+    // tx, ty = centre as a fraction of the square, w = width as a fraction of the square
+    this.layers = [];
+    this.sel = null; // the layer the finger moves; null = the finger moves the image
     this.reset();
   }
 
@@ -48,5 +52,16 @@ export class Placement {
       ctx.drawImage(this.source, -w / 2, -h / 2);
     }
     ctx.restore();
+    for (const l of this.layers) {
+      const lw = l.w * size;
+      const lh = lw * l.aspect;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.translate(size / 2 + l.tx * size, size / 2 + l.ty * size);
+      ctx.rotate(l.rot);
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(l.source, -lw / 2, -lh / 2, lw, lh);
+      ctx.restore();
+    }
   }
 }
