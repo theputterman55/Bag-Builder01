@@ -49,6 +49,10 @@ export class BagPreview {
     scene.add(this.pivot);
     this.bag = new THREE.Group();
     this.pivot.add(this.bag);
+    // the bag itself sits turned half way round so the seam starts at the top edge, the same way the flat art shows it
+    this.model = new THREE.Group();
+    this.model.rotation.y = Math.PI;
+    this.bag.add(this.model);
     this.yaw = 0;
     this.pitch = 0;
     this.spin = false;
@@ -71,6 +75,11 @@ export class BagPreview {
       const tex = new THREE.CanvasTexture(this.flat[name]);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = r.capabilities.getMaxAnisotropy();
+      if (side === 1) {
+        // the top art is turned with the bag so it still reads upright
+        tex.center.set(0.5, 0.5);
+        tex.rotation = Math.PI;
+      }
       const mat = new THREE.MeshStandardMaterial({
         map: tex,
         roughness: 0.92,
@@ -80,7 +89,7 @@ export class BagPreview {
         bumpScale: 0.25
       });
       const mesh = new THREE.Mesh(g, mat);
-      this.bag.add(mesh);
+      this.model.add(mesh);
       this.panels[name] = { mesh, tex, mat };
     });
 
@@ -88,7 +97,7 @@ export class BagPreview {
     const ring = shape.outline(shape.A - 0.03, 240).map((p) => new THREE.Vector2(p[0], -p[1]));
     const inner = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(ring)), new THREE.MeshBasicMaterial({ color: 0x05070a, side: THREE.DoubleSide }));
     inner.rotation.x = -Math.PI / 2;
-    this.bag.add(inner);
+    this.model.add(inner);
 
     // black zigzag stitch inside the front divot, top and bottom
     [1, -1].forEach((side) => {
@@ -97,7 +106,7 @@ export class BagPreview {
         new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0), 1200, 0.0045, 4, false),
         new THREE.MeshBasicMaterial({ color: 0x000000 })
       );
-      this.bag.add(tube);
+      this.model.add(tube);
     });
 
     // wireframe overlay
@@ -106,7 +115,7 @@ export class BagPreview {
       this.wire.add(new THREE.Mesh(p.mesh.geometry, new THREE.MeshBasicMaterial({ color: 0xf3e6c4, wireframe: true, transparent: true, opacity: 0.55 })));
     });
     this.wire.visible = false;
-    this.bag.add(this.wire);
+    this.model.add(this.wire);
 
     const c = (this.controls = new OrbitControls(this.camera, r.domElement));
     c.enableDamping = true;
@@ -191,7 +200,7 @@ export class BagPreview {
     this._last = now;
     if (this.flipT >= 0) {
       this.flipT = Math.min(1, this.flipT + dt / 0.9);
-      this.bag.rotation.x = this.flipFrom + Math.PI * ss(this.flipT);
+      this.bag.rotation.z = this.flipFrom + Math.PI * ss(this.flipT); // flips like a page, so the seam stays at the top on both sides
       if (this.flipT >= 1) this.flipT = -1;
     }
     if (this.spin) this.yaw += dt * 0.5;
@@ -202,7 +211,7 @@ export class BagPreview {
 
   flip() {
     this.flipT = 0;
-    this.flipFrom = this.bag.rotation.x;
+    this.flipFrom = this.bag.rotation.z;
   }
   setSpin(on) {
     this.spin = on;
