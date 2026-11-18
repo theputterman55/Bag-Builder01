@@ -58,3 +58,6 @@ One screen, built for a phone. Top to bottom:
 - Bottom bar: the design name and one main action (Save design). Pass `onSave` to hand the two images to the host app.
 
 Options: `title`, `start` (fabric names for each side), `safeIn`, `cutIn`, `onChange`, `onSave`.
+
+### Series and the two paths
+The first step picks a series. Carpet series (Power Draggin', XTRA, Double Draggin' X) print one side and add a Slow side color step, which flips the bag to its bottom. Double Fast series (WGCB) print both sides: the Image step has Image 1 (Top) and Image 2 (Bottom). Pass `options.series` to change the list. Each item has a name and a speed shown after a dash.

@@ -11,8 +11,10 @@ import { SAMPLES, FABRICS } from './editor/samples.js';
 //   options.shape       any shape overrides (see core/shape.js DEFAULTS)
 //   options.start       { top: 'denim', bottom: 'denim' }  fabric names to start with
 //   options.onChange    called with the side name whenever an image changes
-//   options.onSave      called with { top: Blob, bottom: Blob } when Save design is pressed
+//   options.onSave      called with { top: Blob, bottom: Blob, series } when Save design is pressed
 //   options.title       name shown at the top (default "Bag builder")
+//   options.series      [{ group, mode: 'carpet'|'double', items: [{ name, speed }] }]  the series the maker offers
+//                       carpet = one printed side + a slow side color, double = an image on each side
 // The page is built for a phone: 3D bag on top, flat fabric below, steps, one big action.
 // Give the container a height, or it fills the screen (set --bb-h to change that).
 // Returns { exportPNG(side, dpi), setImage(side, urlOrFile), destroy() }.
@@ -56,34 +58,36 @@ export function createBagBuilder(container, options = {}) {
       </section>
       <section class="bb-stage bb-sflat">
         <canvas class="bb-flat" aria-label="Flat fabric editor"></canvas>
+        <div class="bb-sidelbl">Top</div>
         <button type="button" class="bb-upbig">${ic('image', 24)}<span>Upload image</span></button>
         <div class="bb-hint" role="status"></div>
       </section>
     </div>
-    <nav class="bb-steps" role="tablist">
-      <button type="button" class="bb-step on" data-step="0" role="tab"><b>Upload</b><span></span></button>
-      <button type="button" class="bb-step" data-step="1" role="tab"><b>Adjust</b><span></span></button>
-      <button type="button" class="bb-step" data-step="2" role="tab"><b>Fabric</b><span></span></button>
-      <button type="button" class="bb-step" data-step="3" role="tab"><b>Review</b><span></span></button>
-    </nav>
+    <nav class="bb-steps" role="tablist"></nav>
     <div class="bb-panel">
-      <div class="bb-pane" data-pane="0">
+      <div class="bb-pane bb-series" data-pane="series"></div>
+      <div class="bb-pane" data-pane="image">
+        <div class="bb-ttl"><span class="bb-ttl-g"></span><span><b class="bb-ttl-n"></b><i class="bb-ttl-s"></i></span></div>
         <button type="button" class="bb-wide bb-open">${ic('image', 22)}<span>Upload image</span></button>
-        <div class="bb-note">Pick a photo from your gallery or take one. It shows on the flat art and on the bag.</div>
+        <div class="bb-slots">
+          <button type="button" class="bb-slot" data-side="top"><canvas width="88" height="88"></canvas><span><b>Image 1</b><small>Top · Add image</small></span></button>
+          <button type="button" class="bb-slot" data-side="bottom"><canvas width="88" height="88"></canvas><span><b>Image 2</b><small>Bottom · Add image</small></span></button>
+        </div>
+        <div class="bb-note bb-imgnote"></div>
       </div>
-      <div class="bb-pane" data-pane="1">
+      <div class="bb-pane" data-pane="adjust">
         <label class="bb-row"><span>Zoom</span><input type="range" class="bb-zoom" min="0.3" max="6" step="0.01"></label>
         <label class="bb-row"><span>Turn</span><input type="range" class="bb-rot" min="-180" max="180" step="1"></label>
         <div class="bb-two"><button type="button" class="bb-btn bb-mirror">Flip image</button><button type="button" class="bb-btn bb-fill">Fill to bleed</button><button type="button" class="bb-btn bb-replace">Replace</button></div>
       </div>
-      <div class="bb-pane" data-pane="2">
-        <div class="bb-fabhead"><b class="bb-fabside">Top side</b><span>Fabric</span></div>
+      <div class="bb-pane" data-pane="slow">
+        <div class="bb-fabhead"><b>Slow side color</b><span>Carpet for the bottom</span></div>
         <div class="bb-fabrics"></div>
       </div>
-      <div class="bb-pane" data-pane="3">
+      <div class="bb-pane" data-pane="review">
+        <div class="bb-sum"><span>Series</span><b class="bb-sum-series"></b></div>
         <div class="bb-sum"><span>Top side</span><b class="bb-sum-top"></b></div>
         <div class="bb-sum"><span>Bottom side</span><b class="bb-sum-bottom"></b></div>
-        <div class="bb-sum"><span>Bag</span><b>${P.halfWidthIn * 2} × ${P.halfWidthIn * 2} in · ${P.thicknessIn} in thick</b></div>
       </div>
     </div>
     <footer class="bb-bottom">
@@ -112,7 +116,15 @@ export function createBagBuilder(container, options = {}) {
   const fab = { top: fabricLabel(start.top), bottom: fabricLabel(start.bottom) };
   let side = 'top';
   let preview = null;
-  let step = 0;
+  const SERIES = options.series || [
+    { group: 'Carpet', mode: 'carpet', items: [{ name: "Power Draggin'", speed: '6/9' }, { name: 'XTRA', speed: '5/8' }, { name: "Double Draggin' X", speed: '5/10' }] },
+    { group: 'Double Fast', mode: 'double', items: [{ name: 'WGCB', speed: '8/10' }] }
+  ];
+  const sel = { g: 0, i: 0 };
+  const cur = () => ({ group: SERIES[sel.g].group, mode: SERIES[sel.g].mode, ...SERIES[sel.g].items[sel.i] });
+  const STEP_NAMES = { series: 'Series', image: 'Image', adjust: 'Adjust', slow: 'Slow side', review: 'Review' };
+  const stepIds = () => (cur().mode === 'carpet' ? ['series', 'image', 'adjust', 'slow', 'review'] : ['series', 'image', 'adjust', 'review']);
+  let step = 'series';
 
   const pip = $('.bb-pip canvas');
   const pctx = pip.getContext('2d');
@@ -148,25 +160,62 @@ export function createBagBuilder(container, options = {}) {
   // ----- one place that updates every label and button from the state -----
   const other = (n) => (n === 'top' ? 'bottom' : 'top');
   const cap = (n) => (n === 'top' ? 'Top' : 'Bottom');
+  const shorter = (t) => (t.length > 9 ? t.slice(0, 8) + '…' : t);
   const short = (t) => (t.length > 13 ? t.slice(0, 11) + '…' : t);
+  const ready = () => (cur().mode === 'carpet' ? has.top : has.top && has.bottom);
+  function drawSlot(slot, n) {
+    const c = slot.querySelector('canvas');
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, c.width, c.height);
+    if (has[n]) g.drawImage(flats[n], 0, 0, c.width, c.height);
+    else {
+      g.strokeStyle = '#38bdf8';
+      g.lineWidth = 5;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(44, 28); g.lineTo(44, 60); g.moveTo(28, 44); g.lineTo(60, 44);
+      g.stroke();
+    }
+  }
   function ui() {
+    const c = cur();
     const imgOn = has[side];
     $('.bb-flipchip span').textContent = 'Flip · ' + cap(side);
-    $('.bb-upbig').hidden = imgOn;
+    $('.bb-sidelbl').textContent = cap(side);
+    $('.bb-upbig').hidden = imgOn || (c.mode === 'carpet' && side === 'bottom');
     $('.bb-replace').hidden = !imgOn;
     msgEl.textContent = msg || (imgOn ? 'Drag to move · pinch to zoom · two fingers to turn' : '');
-    const sp = $$('.bb-step span');
-    sp[0].textContent = imgOn ? short(names[side]) : 'No image';
-    sp[1].textContent = 'Move, zoom';
-    sp[2].textContent = fab[side] || 'Custom';
-    sp[3].textContent = has.top || has.bottom ? 'Ready' : 'Not ready';
-    $('.bb-fabside').textContent = cap(side) + ' side';
-    $('.bb-sum-top').textContent = has.top ? names.top : fab.top || 'Fabric';
-    $('.bb-sum-bottom').textContent = has.bottom ? names.bottom : fab.bottom || 'Fabric';
+    const subs = {
+      series: shorter(c.name),
+      image: c.mode === 'carpet' ? (has.top ? shorter(names.top) : 'No image') : (has.top ? 1 : 0) + (has.bottom ? 1 : 0) + ' of 2 added',
+      adjust: 'Move, zoom',
+      slow: fab.bottom || 'Custom',
+      review: ready() ? 'Ready' : 'Not ready'
+    };
+    $$('.bb-step').forEach((b) => (b.querySelector('span').textContent = subs[b.dataset.step]));
+    $('.bb-ttl-g').textContent = c.group;
+    $('.bb-ttl-n').textContent = c.name;
+    $('.bb-ttl-s').textContent = c.speed;
+    const dbl = c.mode === 'double';
+    $('.bb-open').hidden = dbl;
+    $('.bb-slots').hidden = !dbl;
+    $('.bb-open span').textContent = has.top ? 'Replace image' : 'Upload image';
+    $$('.bb-slot').forEach((sl) => {
+      const n = sl.dataset.side;
+      sl.classList.toggle('on', side === n);
+      sl.querySelector('small').textContent = cap(n) + ' · ' + (has[n] ? short(names[n]) : 'Add image');
+      drawSlot(sl, n);
+    });
+    $('.bb-imgnote').textContent = dbl
+      ? (ready() ? 'Tap a slot to switch sides.' : 'Add both images, top and bottom.')
+      : 'Pick a photo from your gallery or take one. It shows on the flat art and on the bag.';
+    $('.bb-sum-series').textContent = c.group + ' · ' + c.name + ' · ' + c.speed;
     const label = (n) => (has[n] ? names[n] : fab[n] || 'Fabric');
+    $('.bb-sum-top').textContent = label('top');
+    $('.bb-sum-bottom').textContent = label('bottom');
     $('.bb-bs').textContent = 'Top: ' + short(label('top')) + ' · Bottom: ' + short(label('bottom'));
-    $('.bb-save').disabled = !(has.top || has.bottom);
-    $$('.bb-fab').forEach((b) => b.classList.toggle('on', !has[side] && fab[side] === b.dataset.label));
+    $('.bb-save').disabled = !ready();
+    $$('.bb-fab').forEach((b) => b.classList.toggle('on', !has.bottom && fab.bottom === b.dataset.label));
   }
 
   function render(name) {
@@ -200,12 +249,13 @@ export function createBagBuilder(container, options = {}) {
     applySource(name, s.make(name));
     ui();
   }
-  function setImage(name, src, label) {
+  function setImage(name, src, label, after) {
     const done = (img) => {
       has[name] = true;
       names[name] = label || 'Your image';
       applySource(name, img);
       setMsg('');
+      if (after) after();
     };
     if (src instanceof Blob) {
       setMsg('Loading image...');
@@ -255,27 +305,95 @@ export function createBagBuilder(container, options = {}) {
     $$('.bb-rb').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
     fit();
     drawPip();
-    if (preview) requestAnimationFrame(() => { preview.resize(); if (v !== 'flat') preview.view('home'); });
+    if (preview) requestAnimationFrame(() => { preview.resize(); if (v !== 'flat') { preview.view('home'); if (side === 'bottom') preview.flip(); } });
   }
   $$('.bb-rb').forEach((b) => (b.onclick = () => setView(b.dataset.view)));
   $('.bb-pip').onclick = () => setView('both');
+  function showSide(n) {
+    if (side !== n) {
+      useSide(n);
+      preview.flip();
+    }
+  }
   $('.bb-flipchip').onclick = () => {
-    useSide(other(side));
-    preview.flip();
+    const n = other(side);
+    if (cur().mode === 'carpet') setStep(n === 'bottom' ? 'slow' : has.top ? 'adjust' : 'image');
+    else showSide(n);
   };
 
-  // ----- steps -----
-  function setStep(n) {
-    step = n;
-    $$('.bb-step').forEach((b) => b.classList.toggle('on', +b.dataset.step === n));
-    $$('.bb-pane').forEach((p) => (p.hidden = +p.dataset.pane !== n));
+  // ----- series and steps -----
+  function renderSeries() {
+    const p = $('.bb-series');
+    p.innerHTML = '';
+    SERIES.forEach((g, gi) => {
+      const d = document.createElement('div');
+      d.className = 'bb-grp';
+      const t = document.createElement('div');
+      t.className = 'bb-gt';
+      t.textContent = g.group;
+      const row = document.createElement('div');
+      row.className = 'bb-gi';
+      g.items.forEach((it, ii) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'bb-sn' + (gi === sel.g && ii === sel.i ? ' on' : '');
+        b.append(it.name + ' ', Object.assign(document.createElement('i'), { textContent: '– ' + it.speed }));
+        b.onclick = () => pickSeries(gi, ii);
+        row.appendChild(b);
+      });
+      d.append(t, row);
+      p.appendChild(d);
+    });
   }
-  $$('.bb-step').forEach((b) => (b.onclick = () => setStep(+b.dataset.step)));
-  setStep(0);
+  function renderSteps() {
+    const nav = $('.bb-steps');
+    nav.innerHTML = '';
+    stepIds().forEach((id) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'bb-step';
+      b.dataset.step = id;
+      b.setAttribute('role', 'tab');
+      b.innerHTML = '<b>' + STEP_NAMES[id] + '</b><span></span>';
+      b.onclick = () => setStep(id);
+      nav.appendChild(b);
+    });
+  }
+  function setStep(id) {
+    step = id;
+    $$('.bb-step').forEach((b) => b.classList.toggle('on', b.dataset.step === id));
+    $$('.bb-pane').forEach((p) => (p.hidden = p.dataset.pane !== id));
+    if (cur().mode === 'carpet') showSide(id === 'slow' ? 'bottom' : 'top');
+    ui();
+  }
+  function pickSeries(gi, ii) {
+    const was = cur().mode;
+    sel.g = gi;
+    sel.i = ii;
+    if (cur().mode === 'carpet' && was === 'double') {
+      if (has.bottom) setFabric('bottom', start.bottom);
+      showSide('top');
+    }
+    renderSeries();
+    renderSteps();
+    setStep(stepIds().includes(step) ? step : 'image');
+  }
+  renderSeries();
+  renderSteps();
+  setStep('series');
 
   // ----- upload sheet -----
+  const afterImage = () => setStep(cur().mode === 'double' && !(has.top && has.bottom) ? 'image' : 'adjust');
+  $$('.bb-slot').forEach((sl) => {
+    sl.onclick = () => {
+      showSide(sl.dataset.side);
+      if (!has[sl.dataset.side]) openSheet();
+    };
+  });
   const sheet = $('.bb-sheet');
-  const openSheet = () => (sheet.hidden = false);
+  function openSheet() {
+    sheet.hidden = false;
+  }
   const closeSheet = () => (sheet.hidden = true);
   $('.bb-upbig').onclick = openSheet;
   $('.bb-replace').onclick = openSheet;
@@ -287,16 +405,14 @@ export function createBagBuilder(container, options = {}) {
       const f = e.target.files[0];
       if (f) {
         closeSheet();
-        setImage(side, f, f.name.replace(/\.[^.]+$/, '') + (f.name.includes('.') ? '.' + f.name.split('.').pop().toLowerCase() : ''));
-        setStep(1);
+        setImage(side, f, f.name.replace(/\.[^.]+$/, '') + (f.name.includes('.') ? '.' + f.name.split('.').pop().toLowerCase() : ''), afterImage);
       }
       e.target.value = '';
     };
   });
   $('.bb-sample').onclick = () => {
     closeSheet();
-    setImage(side, SAMPLES.design.make(side), 'Test design');
-    setStep(1);
+    setImage(side, SAMPLES.design.make(side), 'Test design', afterImage);
   };
 
   // ----- adjust -----
@@ -338,7 +454,7 @@ export function createBagBuilder(container, options = {}) {
       g.fillRect(x, y, 3, 3);
     }
     b.append(t, Object.assign(document.createElement('span'), { textContent: f.label }));
-    b.onclick = () => setFabric(side, f.key);
+    b.onclick = () => setFabric('bottom', f.key);
     fh.appendChild(b);
   });
   ui();
@@ -352,7 +468,7 @@ export function createBagBuilder(container, options = {}) {
     return new Promise((res) => c.toBlob(res, 'image/png'));
   }
   $('.bb-save').onclick = async () => {
-    const out = { top: await exportPNG('top'), bottom: await exportPNG('bottom') };
+    const out = { top: await exportPNG('top'), bottom: await exportPNG('bottom'), series: cur() };
     if (options.onSave) return options.onSave(out);
     ['top', 'bottom'].forEach((n) => {
       const a = document.createElement('a');
