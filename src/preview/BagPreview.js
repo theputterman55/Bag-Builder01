@@ -141,7 +141,7 @@ export class BagPreview {
         if (p) Object.assign(p, { x: e.clientX, y: e.clientY });
         return;
       }
-      this.yaw += (e.clientX - p.x) * K;
+      this.yaw -= (e.clientX - p.x) * K; // sideways only: a swipe right brings the right side toward you
       this.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitch + (e.clientY - p.y) * K));
       p.x = e.clientX;
       p.y = e.clientY;
