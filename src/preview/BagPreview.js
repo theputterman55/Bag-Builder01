@@ -181,6 +181,10 @@ export class BagPreview {
     const h = this.container.clientHeight || 300;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    // lift: pixels to raise the bag, so it can sit centered above something covering the bottom of the box
+    const lift = this.liftFn ? Math.round(this.liftFn()) : 0;
+    if (lift) this.camera.setViewOffset(w, h, 0, lift, w, h);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
     // how far back the camera must sit for the whole bag to fit this box
     const t = 2 * Math.tan((this.camera.fov * Math.PI) / 360);

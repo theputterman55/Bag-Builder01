@@ -314,6 +314,12 @@ export function createBagBuilder(container, options = {}) {
   setFabric('top', start.top);
   setFabric('bottom', start.bottom);
   preview = new BagPreview($('.bb-3d'), shape, flats);
+  // in the 3D-only view the bag is centered between the top of the box and the top of the flat-art thumbnail
+  preview.liftFn = () => {
+    if (app.dataset.view !== '3d') return 0;
+    const pip = $('.bb-pip');
+    return (pip.offsetHeight + 10) / 2;
+  };
   useSide('top');
 
   // ----- keep the flat square sized to its box -----
