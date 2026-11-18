@@ -26,7 +26,11 @@
 .bb-hint{position:absolute;left:0;right:0;bottom:7px;text-align:center;font-size:13px;font-weight:700;color:#fff;padding:0 8px}
 .bb-pip{appearance:none;display:none;position:absolute;z-index:4;left:10px;bottom:10px;width:150px;padding:8px;border-radius:14px;border:1px solid var(--bb-blue);background:var(--bb-card);color:var(--bb-blue);font:800 12px/1.2 inherit;font-family:inherit;text-align:center;cursor:pointer}
 .bb-pip canvas{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:4px}
-.bb-app[data-view="3d"] .bb-pip{display:block}
+.bb-app[data-view="3d"] .bb-pip{display:block;animation:bbpop .28s ease-out}
+@keyframes bbpop{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+/* the 3D view is clean: the step tabs and tools only belong to the edit builder views */
+.bb-app[data-view="3d"] .bb-steps,.bb-app[data-view="3d"] .bb-panel{display:none}
+.bb-app[data-view="3d"] .bb-views{padding-bottom:12px}
 .bb-steps{flex:none;display:flex;padding:8px 6px 0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}.bb-steps::-webkit-scrollbar{display:none}
 .bb-step{appearance:none;flex:0 0 92px;min-width:0;height:58px;border:0;border-bottom:3px solid #27272a;background:transparent;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;cursor:pointer;font-family:inherit}
 .bb-step b{font-size:15px;font-weight:800}
