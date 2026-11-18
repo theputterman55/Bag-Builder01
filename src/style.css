@@ -6,6 +6,9 @@
 .bb-tabs{display:flex;gap:10px}
 .bb-tab,.bb-btn{appearance:none;background:transparent;border:2px solid #F2B544;color:#F2B544;border-radius:10px;font-size:18px;font-weight:700;padding:10px 16px;cursor:pointer;font-family:inherit}
 .bb-tab.on{background:#F2B544;color:#0B0F14}
+.bb-loadlbl{position:relative;display:inline-block;overflow:hidden}
+.bb-loadlbl input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px}
+.bb-msg{min-height:22px;margin-top:8px;text-align:center;font-size:17px;color:#E3EAF2}
 .bb-btn:active{background:rgba(242,181,68,.15)}
 .bb-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
 .bb-card{background:#111821;border:2px solid #2A323B;border-radius:16px;padding:16px}

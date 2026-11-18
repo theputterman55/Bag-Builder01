@@ -42,13 +42,13 @@ export function createBagBuilder(container, options = {}) {
         <label class="bb-row"><span>Zoom</span><input type="range" class="bb-zoom" min="0.3" max="6" step="0.01"></label>
         <label class="bb-row"><span>Turn</span><input type="range" class="bb-rot" min="-180" max="180" step="1"></label>
         <div class="bb-btns">
-          <button class="bb-btn bb-load">Load image</button>
+          <label class="bb-btn bb-loadlbl">Load image<input type="file" accept="image/*" class="bb-file"></label>
           <button class="bb-btn bb-fill">Fill to bleed</button>
           <button class="bb-btn bb-mirror">Flip image</button>
           <button class="bb-btn bb-guides">Hide guides</button>
         </div>
         <div class="bb-btns bb-samples"></div>
-        <input type="file" accept="image/*" class="bb-file" hidden>
+        <div class="bb-msg" role="status"></div>
       </section>
       <section class="bb-card bb-view">
         <h2>Your bag</h2>
@@ -123,14 +123,21 @@ export function createBagBuilder(container, options = {}) {
       if (name === side) editor.update();
       else if (preview) preview.refresh(name);
     };
+    const msg = $('.bb-msg');
     if (src instanceof Blob) {
-      const url = URL.createObjectURL(src);
-      const img = new Image();
-      img.onload = () => {
-        apply(img);
-        URL.revokeObjectURL(url);
+      msg.textContent = 'Loading image...';
+      const fr = new FileReader();
+      fr.onerror = () => (msg.textContent = 'Could not read that file. Try a JPG or PNG.');
+      fr.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          msg.textContent = '';
+          apply(img);
+        };
+        img.onerror = () => (msg.textContent = 'Could not open that image. Try a JPG or PNG.');
+        img.src = fr.result;
       };
-      img.src = url;
+      fr.readAsDataURL(src);
     } else if (typeof src === 'string') {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -170,7 +177,6 @@ export function createBagBuilder(container, options = {}) {
     e.target.textContent = guides ? 'Hide guides' : 'Show guides';
     editor.update();
   };
-  $('.bb-load').onclick = () => $('.bb-file').click();
   $('.bb-file').onchange = (e) => {
     const f = e.target.files[0];
     if (f) setImage(side, f);
