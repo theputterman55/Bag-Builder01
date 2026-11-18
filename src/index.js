@@ -57,7 +57,6 @@ export function createBagBuilder(container, options = {}) {
       <section class="bb-stage bb-sflat">
         <canvas class="bb-flat" aria-label="Flat fabric editor"></canvas>
         <button type="button" class="bb-upbig">${ic('image', 24)}<span>Upload image</span></button>
-        <button type="button" class="bb-chip bb-replace">Replace</button>
         <div class="bb-hint" role="status"></div>
       </section>
     </div>
@@ -75,7 +74,7 @@ export function createBagBuilder(container, options = {}) {
       <div class="bb-pane" data-pane="1">
         <label class="bb-row"><span>Zoom</span><input type="range" class="bb-zoom" min="0.3" max="6" step="0.01"></label>
         <label class="bb-row"><span>Turn</span><input type="range" class="bb-rot" min="-180" max="180" step="1"></label>
-        <div class="bb-two"><button type="button" class="bb-btn bb-fill">Fill to bleed</button><button type="button" class="bb-btn bb-mirror">Flip image</button></div>
+        <div class="bb-two"><button type="button" class="bb-btn bb-mirror">Flip image</button><button type="button" class="bb-btn bb-fill">Fill to bleed</button><button type="button" class="bb-btn bb-replace">Replace</button></div>
       </div>
       <div class="bb-pane" data-pane="2">
         <div class="bb-fabhead"><b class="bb-fabside">Top side</b><span>Fabric</span></div>
