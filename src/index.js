@@ -1,6 +1,7 @@
 import './style.css';
 import { makeShape } from './core/shape.js';
 import { Placement } from './editor/placement.js';
+import { analyze, palettes, recolor, sampleBackground } from './editor/autocolor.js';
 import { Editor2D } from './editor/Editor2D.js';
 import { BagPreview } from './preview/BagPreview.js';
 import { SAMPLES, FABRICS } from './editor/samples.js';
@@ -11,7 +12,7 @@ import { SAMPLES, FABRICS } from './editor/samples.js';
 //   options.shape       any shape overrides (see core/shape.js DEFAULTS)
 //   options.start       { top: 'denim', bottom: 'denim' }  fabric names to start with
 //   options.onChange    called with the side name whenever an image changes
-//   options.onSave      called with { top: Blob, bottom: Blob, series } when Save design is pressed
+//   options.onSave      called with { top: Blob, bottom: Blob, series } when Submit is pressed on the Review step
 //   options.title       name shown at the top (default "Bag builder")
 //   options.series      [{ group, mode: 'carpet'|'double', items: [{ name, speed }] }]  the series the maker offers
 //                       carpet = one printed side + a slow side color, double = an image on each side
@@ -93,6 +94,13 @@ export function createBagBuilder(container, options = {}) {
           <button type="button" class="bb-sp" data-stamp="UCL"><i></i><span>UCL</span></button>
           <button type="button" class="bb-sp" data-stamp=""><i></i><span>None</span></button>
         </div>
+        <div class="bb-edit dim">
+          <div class="bb-eh"><span class="bb-et">Tap a logo to edit it</span><span class="bb-ea"><button type="button" class="bb-tb bb-auto" hidden>Auto color</button><button type="button" class="bb-tb bb-remove">Remove</button></span></div>
+          <div class="bb-er">
+            <label><span>Size</span><input type="range" class="bb-lsize" min="0.05" max="0.6" step="0.005"></label>
+            <label><span>Rotate</span><input type="range" class="bb-lrot" min="-180" max="180" step="1" value="0"></label>
+          </div>
+        </div>
       </div>
       <div class="bb-pane" data-pane="adjust">
         <label class="bb-row"><span>Zoom</span><input type="range" class="bb-zoom" min="0.3" max="6" step="0.01"></label>
@@ -107,12 +115,10 @@ export function createBagBuilder(container, options = {}) {
         <div class="bb-sum"><span>Series</span><b class="bb-sum-series"></b></div>
         <div class="bb-sum"><span>Top side</span><b class="bb-sum-top"></b></div>
         <div class="bb-sum"><span>Bottom side</span><b class="bb-sum-bottom"></b></div>
+        <div class="bb-sum"><span>Logos</span><b class="bb-sum-logos"></b></div>
+        <button type="button" class="bb-submit">Submit</button>
       </div>
     </div>
-    <footer class="bb-bottom">
-      <div class="bb-bt"><div class="bb-bn">My design</div><div class="bb-bs"></div></div>
-      <button type="button" class="bb-save">Save design ${ic('arrow', 20)}</button>
-    </footer>
     <div class="bb-sheet" hidden>
       <div class="bb-back"></div>
       <div class="bb-card" role="dialog" aria-label="Upload your image">
@@ -235,8 +241,8 @@ export function createBagBuilder(container, options = {}) {
     const label = (n) => (has[n] ? names[n] : fab[n] || 'Fabric');
     $('.bb-sum-top').textContent = label('top');
     $('.bb-sum-bottom').textContent = label('bottom');
-    $('.bb-bs').textContent = 'Top: ' + short(label('top')) + ' · Bottom: ' + short(label('bottom'));
-    $('.bb-save').disabled = !ready();
+    $('.bb-sum-logos').textContent = (placements.top.layers.length + placements.bottom.layers.length) ? placements.top.layers.length + placements.bottom.layers.length + ' added' : 'None';
+    $('.bb-submit').disabled = !ready();
     $$('.bb-fab').forEach((b) => b.classList.toggle('on', !has.bottom && fab.bottom === b.dataset.label));
   }
 
@@ -252,6 +258,7 @@ export function createBagBuilder(container, options = {}) {
     ui();
   }
   function syncSliders() {
+    if (logosReady) editUI();
     const pl = placements[side];
     $('.bb-zoom').value = pl.zoom;
     $('.bb-rot').value = Math.round((pl.rot * 180) / Math.PI);
@@ -349,6 +356,7 @@ export function createBagBuilder(container, options = {}) {
   function putLayer(l) {
     const pl = placements[side];
     const old = pl.layers.findIndex((x) => x.key === l.key);
+    l.w0 = (old >= 0 && pl.layers[old].w0) || l.w0 || l.w; // the starting size, the Size slider is centred on it
     if (old >= 0) pl.layers[old] = l;
     else pl.layers.push(l);
     pl.sel = l;
@@ -447,6 +455,7 @@ export function createBagBuilder(container, options = {}) {
   });
   function logoUI() {
     if (!logosReady) return;
+    editUI();
     const pl = placements[side];
     $$('.bb-lp').forEach((b) => {
       const i = +b.dataset.i;
@@ -497,6 +506,74 @@ export function createBagBuilder(container, options = {}) {
       putLayer(l);
     };
   });
+  // ----- edit strip under the logo controls: Size, Rotate, Auto color, Remove -----
+  const eSize = $('.bb-lsize');
+  const eRot = $('.bb-lrot');
+  const TITLES = { brand: 'Brand logo', name: 'Series name', stamp: 'Stamp' };
+  function editUI() {
+    const l = placements[side].sel;
+    $('.bb-edit').classList.toggle('dim', !l);
+    eSize.disabled = eRot.disabled = !l;
+    $('.bb-et').textContent = l ? TITLES[l.kind] || 'Logo' : 'Tap a logo to edit it';
+    $('.bb-remove').hidden = !l;
+    const au = $('.bb-auto');
+    au.hidden = !(l && (l.kind === 'brand' || l.kind === 'name'));
+    if (!l) return;
+    const w0 = l.w0 || l.w;
+    eSize.min = 0.05;
+    eSize.max = Math.min(1.2, Math.max(0.3, 2 * w0 - 0.05));
+    eSize.value = l.w;
+    eRot.value = Math.round((l.rot * 180) / Math.PI);
+    const a = l.auto;
+    au.textContent = a && a.i >= 0 && a.i < a.pals.length ? 'Auto color ' + (a.i + 1) + '/' + a.pals.length : 'Auto color';
+  }
+  eSize.oninput = () => {
+    const l = placements[side].sel;
+    if (!l) return;
+    l.w = +eSize.value;
+    editor.update();
+  };
+  eRot.oninput = () => {
+    const l = placements[side].sel;
+    if (!l) return;
+    let v = +eRot.value;
+    for (const s of [-180, -90, 0, 90, 180]) if (Math.abs(v - s) <= 4) v = s; // straight and square snap
+    eRot.value = v;
+    l.rot = (v * Math.PI) / 180;
+    editor.update();
+  };
+  $('.bb-remove').onclick = () => {
+    const l = placements[side].sel;
+    if (l) dropLayer(l.key);
+  };
+  // each tap steps to the next colorway, after the last one the original colors come back
+  $('.bb-auto').onclick = () => {
+    const pl = placements[side];
+    const l = pl.sel;
+    if (!l || !(l.kind === 'brand' || l.kind === 'name')) return;
+    l.orig = l.orig || l.source;
+    const pos = side + l.tx.toFixed(2) + ',' + l.ty.toFixed(2);
+    if (!l.auto || l.auto.pos !== pos) {
+      const n = 128;
+      const c = document.createElement('canvas');
+      c.width = c.height = n;
+      pl.composeBase(c.getContext('2d', { willReadFrequently: true }), n);
+      const bg = sampleBackground(c, 0.5 + l.tx, 0.5 + l.ty, l.w, l.w * l.aspect);
+      const info = analyze(l.orig);
+      l.auto = { pos, info, busy: bg.busy, pals: palettes(bg.avg, info, 5), i: -1 };
+    }
+    const a = l.auto;
+    a.i = (a.i + 1) % (a.pals.length + 1);
+    const cw = l.source.naturalWidth || l.source.width;
+    const next = a.i < a.pals.length ? recolor(l.orig, a.info, a.pals[a.i], a.busy) : l.orig;
+    const nw = next.naturalWidth || next.width;
+    const nh = next.naturalHeight || next.height;
+    l.w *= nw / cw; // the logo keeps its size on the art, even when a border adds a little room
+    l.aspect = nh / nw;
+    l.source = next;
+    editor.update();
+    editUI();
+  };
   editor.onSelect = () => ui();
   logosReady = true;
 
@@ -689,7 +766,7 @@ export function createBagBuilder(container, options = {}) {
     placements[name].compose(c.getContext('2d'), px);
     return new Promise((res) => c.toBlob(res, 'image/png'));
   }
-  $('.bb-save').onclick = async () => {
+  $('.bb-submit').onclick = async () => {
     const out = { top: await exportPNG('top'), bottom: await exportPNG('bottom'), series: cur() };
     if (options.onSave) return options.onSave(out);
     ['top', 'bottom'].forEach((n) => {

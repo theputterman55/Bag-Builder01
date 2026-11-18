@@ -55,7 +55,8 @@ One screen, built for a phone. Top to bottom:
 - Left rail: both views, 3D only (with a small flat picture in the corner), flat only.
 - Step strip: Upload, Adjust, Fabric, Review. Each step shows the current choice under its name.
 - Upload opens a sheet: Photo library, Take photo, Files, plus a test design.
-- Bottom bar: the design name and one main action (Save design). Pass `onSave` to hand the two images to the host app.
+- No bottom bar. The Review step has the summary and a Submit button. Pass `onSave` to hand the two images to the host app when Submit is pressed.
+- Logo step edit strip: Size and Rotate sliders for the selected logo, series name or stamp, plus Remove. Brand logo and series name also get Auto color (src/editor/autocolor.js), which steps through five colorways picked from the art behind the logo, then back to the original.
 
 Options: `title`, `start` (fabric names for each side), `safeIn`, `cutIn`, `onChange`, `onSave`.
 

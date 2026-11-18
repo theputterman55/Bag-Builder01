@@ -38,6 +38,12 @@ export class Placement {
 
   // Draw the placed image into a size x size canvas context (the flat fabric).
   compose(ctx, size) {
+    this.composeBase(ctx, size);
+    this.composeLayers(ctx, size);
+  }
+
+  // the fabric and the image only, without logos
+  composeBase(ctx, size) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = this.base;
@@ -52,6 +58,9 @@ export class Placement {
       ctx.drawImage(this.source, -w / 2, -h / 2);
     }
     ctx.restore();
+  }
+
+  composeLayers(ctx, size) {
     for (const l of this.layers) {
       const lw = l.w * size;
       const lh = lw * l.aspect;
