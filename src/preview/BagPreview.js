@@ -183,6 +183,13 @@ export class BagPreview {
     const h = this.container.clientHeight || 300;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    // backdrop: the tall 3D-only box shows the whole pedestal; the short box above the flat art lowers the picture
+    // by a quarter of the box height, so the pedestal sinks toward (and past) the bottom edge
+    const sc = Math.max(w / 960, h / 1180);
+    const H = 1180 * sc;
+    let ty = -(H - h) * 0.78;
+    if (h / w <= 1) ty = Math.min(0, ty + h * 0.25);
+    this.container.style.backgroundPosition = 'center ' + Math.round(ty) + 'px';
     // lift: pixels to raise the bag, so it can sit centered above something covering the bottom of the box
     const lift = this.liftFn ? Math.round(this.liftFn()) : 0;
     if (lift) this.camera.setViewOffset(w, h, 0, lift, w, h);
@@ -190,7 +197,10 @@ export class BagPreview {
     this.camera.updateProjectionMatrix();
     // how far back the camera must sit for the whole bag to fit this box
     const t = 2 * Math.tan((this.camera.fov * Math.PI) / 360);
-    this.fitDist = Math.max(8.4 / (t * this.camera.aspect), 6.4 / t);
+    // the bag opens smaller than the box (START x farther back) so it reads as floating; zoom out reaches well past that
+    const START = 1.733;
+    this.fitDist = START * Math.max(8.4 / (t * this.camera.aspect), 6.4 / t);
+    this.controls.maxDistance = Math.max(30, this.fitDist * 1.25);
     if (!this._moved) this._home();
   }
 
