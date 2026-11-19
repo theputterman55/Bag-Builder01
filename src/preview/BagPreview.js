@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { weaveBump } from '../editor/samples.js';
+import stageBg from '../assets/stage-bg.jpg?inline';
 
 const HOME_DIR = new THREE.Vector3(0, 7.2, 5.0).normalize();
 const HOME = HOME_DIR.clone().multiplyScalar(9.6);
@@ -19,7 +20,7 @@ export class BagPreview {
     this.flipT = -1;
     this.flipFrom = 0;
 
-    const r = (this.renderer = new THREE.WebGLRenderer({ antialias: true }));
+    const r = (this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }));
     r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     r.domElement.style.display = 'block';
     r.domElement.style.width = '100%';
@@ -28,7 +29,8 @@ export class BagPreview {
     container.appendChild(r.domElement);
 
     const scene = (this.scene = new THREE.Scene());
-    scene.background = new THREE.Color(0x0b0f14);
+    // the backdrop is a picture behind the canvas (the canvas is see-through), so it never changes the bag's lighting
+    container.style.background = 'url(' + stageBg + ') center 78% / cover no-repeat #060a18';
     this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
     this.camera.position.copy(HOME);
 
