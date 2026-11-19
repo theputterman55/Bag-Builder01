@@ -24,16 +24,39 @@ for (const side of [1, -1]) {
   const expected = 0.5 + shape.seamHalfIn / shape.params.cutIn;
   ok(Math.abs(umax - expected) < 1e-3, 'seam reaches seamHalfIn along the edge');
 
-  // height: top panel above the seam plane, bottom below, 0.5 in at the face
+  // height: top panel above the seam plane, bottom below; 0.5 in at the edge line plus the small crown in the middle
   let ymax = -9, ymin = 9;
   for (let i = 1; i < g.position.length; i += 3) { ymax = Math.max(ymax, g.position[i]); ymin = Math.min(ymin, g.position[i]); }
-  if (side > 0) ok(Math.abs(ymax - 0.5) < 1e-6 && ymin >= -1e-9, 'top panel spans 0..0.5 in');
-  else ok(Math.abs(ymin + 0.5) < 1e-6 && ymax <= 1e-9, 'bottom panel spans -0.5..0 in');
+  const top = 0.5 + shape.params.crownIn;
+  if (side > 0) ok(Math.abs(ymax - top) < 1e-6 && ymin >= -1e-9, 'top panel spans 0..' + top + ' in');
+  else ok(Math.abs(ymin + top) < 1e-6 && ymax <= 1e-9, 'bottom panel spans -' + top + '..0 in');
+  // the widest point is the footprint half width, never beyond it
+  let xmax = 0;
+  for (let i = 0; i < g.position.length; i += 3) xmax = Math.max(xmax, Math.abs(g.position[i]));
+  ok(xmax <= shape.A + 1e-6 && xmax > shape.A - 0.02, 'widest point is the 6 in footprint');
 }
 
 // panels meet at the seam: same outline ring height 0 on both sides
-const lv = shape.levels(0);
-ok(lv[lv.length - 1][1] === 0, 'seam ring sits at z = 0');
+const er = shape.edgeRings(40);
+ok(er[er.length - 1].z === 0, 'seam ring sits at z = 0');
+ok(Math.abs(er[0].z - 0.5) < 1e-9, 'edge rings start at the junction with the top');
+
+// the edge section is the same at every angle: the seam ring is an even distance in from the seam outline
+{
+  const g = shape.buildSide(1, { NA: 360, NS: 40 });
+  const nL = g.ringsPerAngle;
+  const lastRing = (j) => 1 + j * nL + nL - 1;
+  const dist = (j) => {
+    const th = (j / 360) * Math.PI * 2;
+    const [px, py] = shape.sc(th);
+    const i = lastRing(j) * 3;
+    return Math.hypot(g.position[i] - px, -g.position[i + 2] - py);
+  };
+  const d0 = dist(0);
+  let spread = 0;
+  for (const j of [30, 45, 100, 135]) spread = Math.max(spread, Math.abs(dist(j) - d0));
+  ok(spread < 1e-3, 'seam ring is the same distance in at every angle (spread ' + spread.toExponential(1) + ')');
+}
 
 // stitch stays inside the divot
 const zz = shape.zigzag(1);

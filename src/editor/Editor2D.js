@@ -98,7 +98,7 @@ export class Editor2D {
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, size, size);
-    this._path(ctx, shape.outline(shape.seamHalfIn, 240), ppi);
+    this._path(ctx, shape.seamOutline(240), ppi);
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fill('evenodd');
     ctx.restore();
@@ -115,7 +115,7 @@ export class Editor2D {
     ctx.lineWidth = lw * 1.2;
     ctx.strokeStyle = '#FFFFFF';
     ctx.beginPath();
-    this._path(ctx, shape.outline(shape.seamHalfIn, 240), ppi);
+    this._path(ctx, shape.seamOutline(240), ppi);
     ctx.stroke();
     // safe zone
     ctx.lineWidth = lw * 1.2;

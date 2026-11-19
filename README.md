@@ -12,8 +12,16 @@ the square (move, zoom, turn); the 3D bag shows the result live. Top and bottom 
 Guides in the editor:
 
 - Cut edge (gold dashed): the 7.5 in square. Art must reach every edge.
-- Seam line (white): about 6.67 in across. Everything inside it shows on the bag.
+- Seam line (white): about 6.5 in across. Everything inside it shows on the bag.
 - Safe zone (teal dotted): 6 in. Keep text and logos inside. Change it with `safeIn`.
+
+## The bag shape
+
+Each panel has a slightly crowned top (about 1.5 mm), then a rounded edge that tapers in to the seam, so the end reads as a
+half dome rather than a bull nose. The edge rings sit an even distance in from the seam outline all the way round, so the edge
+cross section is the same at every angle. The seam crease tucks in 0.016 in, and the front edge has a pinch with a zigzag
+stitch. Tune it in `DEFAULTS` in `src/core/shape.js`: `endBlend` (0 = round dome, 1 = fully tapered), `taperStartIn`,
+`taperPower`, `crownIn`, `pinchDepthIn`, `seamGapIn`.
 
 ## Layout
 
