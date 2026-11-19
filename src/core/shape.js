@@ -23,12 +23,15 @@ export const DEFAULTS = {
   thicknessIn: 1, // total thickness
   shoulderIn: 0.4, // radius of the old round dome the end is blended from
   endBlend: 0.5, // 0 = round dome end, 1 = fully tapered end
+  junctionSmooth: 1, // 1 = edge leaves the junction at the crown slope, 0 = off (level start)
   taperStartIn: 2.1, // where the fully tapered end would leave the top
   taperPower: 1.8, // how pointed the tapered end is (2 = ellipse)
   crownIn: 0.06, // how far the middle of the top rises above the edge line (about 1.5 mm)
   pinchDepthIn: 0.14, // how far the front pinch goes in
   pinchHalfIn: 1.5, // half width of the pinch zone along the front edge
-  seamGapIn: 0.016 // how far the seam crease tucks in from the widest point
+  seamGapIn: 0.016, // how far the seam crease tucks in from the widest point
+  blendRings: 6, // extra rings that fade the grid from wide (top) to tight (edge) in the last top cell
+  blendFade: 0.7 // how fast those rings tighten (smaller = faster)
 };
 
 const cl = (v) => Math.min(1, Math.max(0, v));
@@ -76,9 +79,20 @@ export function makeShape(opts = {}) {
   // ----- the edge profile: distance out from the center (x) at each height (z), then the seam tuck
   const xDome = (z) => (z >= WALL ? A - R * (1 - Math.sqrt(Math.max(0, 1 - Math.pow((z - WALL) / R, 2)))) : A);
   const xTaper = (z) => P.taperStartIn + (A - P.taperStartIn) * Math.pow(Math.max(0, 1 - Math.pow(cl(z / HALF), P.taperPower)), 1 / P.taperPower);
-  const xEdge = (z) => {
+  const xRaw = (z) => {
     const x = (1 - P.endBlend) * xDome(z) + P.endBlend * xTaper(z);
     return x - P.seamGapIn * Math.pow(cl(1 - z / 0.04), 2);
+  };
+  // Smooth junction: the crown comes down into the junction at a slope, so the edge must leave the
+  // junction at that same slope instead of starting level (which read as a small shoulder / indent).
+  const xJ = xRaw(HALF);
+  const crownSlope = (2 * CROWN) / xJ; // crown drop per inch going out to the junction
+  const cRoot = (xRaw(HALF - 1e-6) - xJ) / 1e-3; // edge leaves the junction like cRoot * sqrt(drop)
+  const h1 = Math.max(cRoot * crownSlope, 1e-6) * P.junctionSmooth;
+  const xEdge = (z) => {
+    const h = Math.max(0, HALF - z);
+    const g = h <= 0 ? 0 : Math.sqrt(h / (h + h1 * h1));
+    return xJ + (xRaw(z) - xJ) * g;
   };
   const dEdge = (z) => A - xEdge(z); // inset from the seam outline
   const junctionIn = dEdge(HALF); // how far in the top meets the edge (about 0.65 in)
@@ -129,7 +143,22 @@ export function makeShape(opts = {}) {
   // Build one panel. side = +1 (top) or -1 (bottom).
   function buildSide(side, { NA = 720, NS = 40, NT = 12 } = {}) {
     const edge = edgeRings(NS);
-    const nL = NT - 1 + edge.length; // rings per angle: crowned top rings, then the edge rings
+    // crowned top rings: even spacing, then the last cell before the edge is split into rings that
+    // get tighter and tighter, so the grid fades smoothly from the wide top into the tight edge
+    const topS = [];
+    for (let k = 1; k <= NT - 1; k++) topS.push(k / NT);
+    {
+      const B = Math.max(1, P.blendRings);
+      const q = P.blendFade;
+      const f = (1 - q) / (1 - Math.pow(q, B));
+      let acc = 0;
+      for (let m = 0; m < B - 1; m++) {
+        acc += f * Math.pow(q, m);
+        topS.push((NT - 1) / NT + acc / NT);
+      }
+    }
+    const nT = topS.length;
+    const nL = nT + edge.length; // rings per angle: crowned top rings, then the edge rings
     const position = new Float32Array((1 + NA * nL) * 3);
     const uv = new Float32Array((1 + NA * nL) * 2);
     position.set(P3(0, 0, side * (HALF + CROWN)), 0);
@@ -146,12 +175,12 @@ export function makeShape(opts = {}) {
       const jy = py - junctionIn * ny;
       for (let i = 0; i < nL; i++) {
         let x, y, z, fx, fy;
-        if (i < NT - 1) {
-          const s = (i + 1) / NT;
+        if (i < nT) {
+          const s = topS[i];
           x = jx * s; y = jy * s; z = crownZ(s);
           fx = x; fy = y;
         } else {
-          const e = edge[i - (NT - 1)];
+          const e = edge[i - nT];
           const dd = e.d + dep(e.z) * pw;
           x = px - dd * nx; y = py - dd * ny; z = e.z;
           fx = jx + nx * e.s; fy = jy + ny * e.s; // unrolled flat fabric
